@@ -257,9 +257,9 @@
 
     #calendar { padding: 10px; }
     .weekdays div { font-size: 10.5px; padding: 4px 0; }
-    .grid { gap: 3px; grid-auto-rows: minmax(64px, auto); }
+    .grid { gap: 3px; grid-auto-rows: 76px; }
     .grid.week-mode { grid-auto-rows: minmax(220px, 1fr); }
-    .day-cell { padding: 3px; min-height: 64px; border-radius: 7px; }
+    .day-cell { padding: 3px; height: 76px; min-height: 0; border-radius: 7px; overflow: hidden; }
     .day-num { font-size: 10.5px; }
     .chip { font-size: 9.5px; padding: 2px 4px; }
     .more-link { font-size: 9.5px; }
@@ -527,7 +527,8 @@
 
     let dayStr = ymd(d);
     var dayEvents = eventsForDay(dayStr);
-    var maxShown = viewMode === "week" ? 10 : 3;
+    var isMobile = window.innerWidth <= 768;
+    var maxShown = viewMode === "week" ? 10 : (isMobile ? 2 : 3);
     var shown = dayEvents.slice(0, maxShown);
     shown.forEach(function (ev) {
       var chip = document.createElement("div");
