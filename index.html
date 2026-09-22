@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>세터 캘린더</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --text: #111827;
+    --sub: #6b7280;
+    --blue: #3b82f6;
+    --blue-bg: #dbeafe;
+    --orange: #f97316;
+    --orange-bg: #ffedd5;
+    --purple: #8b5cf6;
+    --purple-bg: #ede9fe;
+    --green: #16a34a;
+    --green-bg: #dcfce7;
+    --yellow: #ca8a04;
+    --yellow-bg: #fef9c3;
+    --red: #dc2626;
+    --red-bg: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  body { display: flex; flex-direction: column; }
+  #page-header {
+    flex-shrink: 0; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 18px 24px;
+  }
+  #page-header h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  #app { display: flex; flex: 1; min-height: 0; }
+
+  /* ---- 사이드바 ---- */
+  #sidebar {
+    width: 220px; flex-shrink: 0; background: var(--card);
+    border-right: 1px solid var(--border); padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 18px; overflow-y: auto;
+  }
+  #sidebar h1 { font-size: 17px; margin: 0 0 4px; }
+  .btn-primary {
+    background: var(--blue); color: #fff; border: none; border-radius: 10px;
+    padding: 11px 14px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;
+  }
+  .btn-primary:hover { background: #2563eb; }
+  .filter-group { display: flex; flex-direction: column; gap: 8px; }
+  .filter-group .label { font-size: 12px; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
+  .filter-item {
+    display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;
+    user-select: none; opacity: 1; transition: opacity 0.15s;
+  }
+  .filter-item.off { opacity: 0.35; }
+  .filter-item input[type=checkbox] {
+    position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  .avatar-dot {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 10.5px; font-weight: 700;
+  }
+
+  /* ---- 사이드바 대시보드 ---- */
+  .dash-box { border-top: 1px solid var(--border); padding-top: 14px; }
+  .dash-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .dash-nav .label { font-size: 12px; color: var(--sub); font-weight: 700; }
+  .nav-btn.small { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; width: 24px; height: 24px; font-size: 11px; cursor: pointer; }
+  .dash-total { font-size: 20px; font-weight: 700; margin: 4px 0 10px; }
+
+  .dash-event-list { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; }
+  .dash-status-group .status-header {
+    font-size: 11.5px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;
+  }
+  .dash-status-group.st-확정 .status-header { color: var(--green); }
+  .dash-status-group.st-협의중 .status-header { color: var(--yellow); }
+  .dash-status-group.st-미확정 .status-header { color: var(--red); }
+  .dash-event-item {
+    font-size: 12.5px; padding: 5px 8px; border-radius: 7px; cursor: pointer;
+    margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dash-status-group.st-확정 .dash-event-item { background: var(--green-bg); color: var(--green); }
+  .dash-status-group.st-협의중 .dash-event-item { background: var(--yellow-bg); color: var(--yellow); }
+  .dash-status-group.st-미확정 .dash-event-item { background: var(--red-bg); color: var(--red); }
+  .dash-empty { font-size: 12px; color: var(--sub); }
+
+  .dash-files-header {
+    font-size: 12px; color: var(--sub); font-weight: 700; margin-top: 14px;
+    padding-top: 12px; border-top: 1px solid var(--border);
+  }
+  .dash-files-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 220px; overflow-y: auto; }
+  .dash-file-item {
+    display: flex; flex-direction: column; gap: 1px; background: var(--bg);
+    border-radius: 8px; padding: 6px 9px; text-decoration: none; color: inherit;
+  }
+  .dash-file-item .df-name { font-size: 12.5px; font-weight: 600; color: var(--blue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dash-file-item .df-meta { font-size: 11px; color: var(--sub); }
+
+  /* ---- 메인 ---- */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--card);
+  }
+  #topbar .nav { display: flex; align-items: center; gap: 10px; }
+  #topbar button.nav-btn {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    width: 32px; height: 32px; cursor: pointer; font-size: 14px;
+  }
+  #month-label { font-size: 18px; font-weight: 700; min-width: 110px; text-align: center; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .view-toggle { display: flex; background: var(--bg); border-radius: 8px; padding: 3px; gap: 2px; }
+  .view-btn {
+    background: transparent; border: none; border-radius: 6px; padding: 6px 12px;
+    font-size: 13px; font-weight: 600; cursor: pointer; color: var(--sub);
+  }
+  .view-btn.active { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  #today-btn {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+
+  #calendar { flex: 1; overflow-y: auto; padding: 16px 24px; }
+  .hidden { display: none !important; }
+
+  .events-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
+  .events-table th, .events-table td {
+    text-align: left; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .events-table th { background: var(--bg); font-size: 12px; color: var(--sub); font-weight: 700; white-space: nowrap; }
+  .events-table tbody tr { cursor: pointer; }
+  .events-table tbody tr:hover { background: var(--bg); }
+  .events-table td.memo-cell { max-width: 220px; white-space: pre-wrap; color: var(--sub); font-size: 12.5px; }
+  .table-type-badge, .table-confirmed-badge, .table-progress-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  }
+  .table-type-badge.type-행사 { background: var(--blue-bg); color: var(--blue); }
+  .table-type-badge.type-설치 { background: var(--orange-bg); color: var(--orange); }
+  .table-type-badge.type-현장실측 { background: var(--purple-bg); color: var(--purple); }
+  .table-confirmed-badge.confirmed-확정 { background: var(--green-bg); color: var(--green); }
+  .table-confirmed-badge.confirmed-협의중 { background: var(--yellow-bg); color: var(--yellow); }
+  .table-confirmed-badge.confirmed-미확정 { background: var(--red-bg); color: var(--red); }
+  .table-progress-badge.progress-기획 { background: #f3f4f6; color: #374151; }
+  .table-progress-badge.progress-운영 { background: var(--blue-bg); color: var(--blue); }
+  .table-progress-badge.progress-완료 { background: var(--green-bg); color: var(--green); }
+  .table-file-link { display: block; font-size: 12px; color: var(--blue); text-decoration: none; white-space: nowrap; }
+  .table-file-link:hover { text-decoration: underline; }
+  .table-no-file { color: var(--sub); font-size: 12px; }
+  .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+  .weekdays div { text-align: center; font-size: 12px; color: var(--sub); padding: 6px 0; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(110px, auto); gap: 6px; }
+  .grid.week-mode { grid-auto-rows: minmax(360px, 1fr); }
+  .day-cell {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 6px; display: flex; flex-direction: column; gap: 3px; min-height: 110px;
+  }
+  .day-cell.other-month { background: #fafafa; opacity: 0.55; }
+  .day-cell.today { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
+  .day-num { font-size: 12px; font-weight: 700; color: var(--sub); }
+  .day-num.sun { color: var(--red); }
+  .day-num.today-num { color: var(--blue); }
+  .chip {
+    font-size: 11.5px; padding: 3px 6px; border-radius: 6px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600;
+  }
+  .chip.type-행사 { background: var(--blue-bg); color: var(--blue); }
+  .chip.type-설치 { background: var(--orange-bg); color: var(--orange); }
+  .chip.type-현장실측 { background: var(--purple-bg); color: var(--purple); }
+  .more-link { font-size: 11px; color: var(--sub); cursor: pointer; padding-left: 4px; }
+
+  /* ---- 모달 ---- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+  }
+  .overlay.hidden { display: none; }
+  .modal {
+    background: #fff; border-radius: 14px; width: 460px; max-width: 92vw;
+    max-height: 88vh; overflow-y: auto; padding: 22px 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  }
+  .modal h2 { margin: 0 0 16px; font-size: 17px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--sub); margin-bottom: 4px; font-weight: 600; }
+  .field input[type=text], .field input[type=date], .field select, .field textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-family: inherit; background: #fff;
+  }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .manager-select-row { display: flex; gap: 6px; }
+  .manager-select-row select { flex: 1; min-width: 0; }
+  .manager-select-row button {
+    flex-shrink: 0; width: 36px; border-radius: 8px; border: 1px solid var(--border);
+    background: #fff; cursor: pointer; font-size: 14px;
+  }
+  .manager-select-row button:hover { background: var(--red-bg); border-color: var(--red); }
+  .row2 { display: flex; gap: 10px; }
+  .row2 > div { flex: 1; }
+  .badge-select { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge-option {
+    padding: 6px 12px; border-radius: 999px; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--border); background: #fff; font-weight: 600;
+  }
+  .badge-option.selected.confirmed-확정 { background: var(--green-bg); color: var(--green); border-color: var(--green); }
+  .badge-option.selected.confirmed-협의중 { background: var(--yellow-bg); color: var(--yellow); border-color: var(--yellow); }
+  .badge-option.selected.confirmed-미확정 { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+  .badge-option.selected.progress-기획 { background: #f3f4f6; color: #374151; border-color: #9ca3af; }
+  .badge-option.selected.progress-운영 { background: var(--blue-bg); color: var(--blue); border-color: var(--blue); }
+  .badge-option.selected.progress-완료 { background: var(--green-bg); color: var(--green); border-color: var(--green); }
+  .badge-option.selected.type-행사 { background: var(--blue-bg); color: var(--blue); border-color: var(--blue); }
+  .badge-option.selected.type-설치 { background: var(--orange-bg); color: var(--orange); border-color: var(--orange); }
+  .badge-option.selected.type-현장실측 { background: var(--purple-bg); color: var(--purple); border-color: var(--purple); }
+
+  .file-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .file-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg); border-radius: 8px; padding: 6px 10px; font-size: 13px;
+  }
+  .file-item a { color: var(--blue); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .upload-btn {
+    display: block; margin-top: 8px; padding: 12px; border-radius: 8px;
+    border: 1px dashed var(--border); font-size: 13px; cursor: pointer; text-align: center; color: var(--sub);
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .upload-btn.dragover { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
+  .modal-actions { display: flex; justify-content: space-between; margin-top: 18px; gap: 8px; }
+  .modal-actions .right { display: flex; gap: 8px; }
+  button.btn { padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: #fff; }
+  button.btn.primary { background: var(--blue); color: #fff; border: none; }
+  button.btn.danger { background: var(--red-bg); color: var(--red); border: none; }
+
+  /* ---- 모바일 대응 ---- */
+  @media (max-width: 768px) {
+    #page-header { padding: 14px 16px; }
+    #page-header h1 { font-size: 18px; }
+
+    #app { flex-direction: column; }
+    #main { order: 1; }
+    #sidebar {
+      order: 2; width: 100%; max-height: none;
+      border-right: none; border-top: 1px solid var(--border);
+    }
+
+    #topbar { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+    #topbar .nav { gap: 6px; }
+    #month-label { font-size: 15px; min-width: 0; }
+    .topbar-right { gap: 6px; flex-wrap: wrap; }
+    .view-btn { padding: 6px 9px; font-size: 12px; }
+    #today-btn { padding: 6px 9px; font-size: 12px; }
+
+    #calendar { padding: 10px; }
+    .weekdays div { font-size: 10.5px; padding: 4px 0; }
+    .grid { gap: 3px; grid-auto-rows: minmax(64px, auto); }
+    .grid.week-mode { grid-auto-rows: minmax(220px, 1fr); }
+    .day-cell { padding: 3px; min-height: 64px; border-radius: 7px; }
+    .day-num { font-size: 10.5px; }
+    .chip { font-size: 9.5px; padding: 2px 4px; }
+    .more-link { font-size: 9.5px; }
+
+    .modal { width: 100%; max-width: 100%; border-radius: 14px 14px 0 0; padding: 18px 16px; }
+    .overlay { align-items: flex-end; }
+    .row2 { flex-direction: column; gap: 0; }
+  }
+</style>
+</head>
+<body>
+<header id="page-header">
+  <h1>엘투플랜 x 좋은공간 업무 캘린더</h1>
+</header>
+<div id="app">
+  <div id="sidebar">
+    <button class="btn-primary" id="add-btn">＋ 일정등록</button>
+    <div class="filter-group">
+      <div class="label">유형</div>
+      <label class="filter-item"><input type="checkbox" class="type-filter" value="행사" checked><span class="dot" style="background:#3b82f6"></span>행사</label>
+      <label class="filter-item"><input type="checkbox" class="type-filter" value="설치" checked><span class="dot" style="background:#f97316"></span>설치</label>
+      <label class="filter-item"><input type="checkbox" class="type-filter" value="현장실측" checked><span class="dot" style="background:#8b5cf6"></span>현장실측</label>
+    </div>
+
+    <div class="dash-box">
+      <div class="dash-nav">
+        <button class="nav-btn small" id="dash-prev">◀</button>
+        <div class="label" id="dash-month-label">현황</div>
+        <button class="nav-btn small" id="dash-next">▶</button>
+      </div>
+      <div class="dash-total" id="dash-total">전체 0건</div>
+      <div class="dash-event-list" id="dash-event-list"></div>
+      <div class="dash-files-header" id="dash-files-header">📎 이 달 견적서</div>
+      <div class="dash-files-list" id="dash-files-list"></div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="topbar">
+      <div class="nav">
+        <button class="nav-btn" id="prev-btn">◀</button>
+        <div id="month-label"></div>
+        <button class="nav-btn" id="next-btn">▶</button>
+      </div>
+      <div class="topbar-right">
+        <div class="view-toggle">
+          <button class="view-btn active" id="view-month-btn">월간</button>
+          <button class="view-btn" id="view-week-btn">주간</button>
+          <button class="view-btn" id="view-table-btn">테이블</button>
+        </div>
+        <button id="today-btn">오늘</button>
+      </div>
+    </div>
+    <div id="calendar">
+      <div class="weekdays" id="weekdays-header">
+        <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+      </div>
+      <div class="grid" id="grid"></div>
+      <div id="table-view" class="hidden">
+        <table class="events-table">
+          <thead>
+            <tr>
+              <th>날짜</th><th>행사/현장명</th><th>유형</th><th>담당자</th>
+              <th>확정여부</th><th>진척도</th><th>비고</th><th>견적서</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+        <div id="table-empty" class="dash-empty hidden">이 달에는 등록된 일정이 없습니다.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="modal">
+    <h2 id="modal-title">일정 등록</h2>
+    <input type="hidden" id="f-id">
+    <div class="field">
+      <label>행사/현장명</label>
+      <input type="text" id="f-title" placeholder="예: OO행사장 시스템 설치">
+    </div>
+    <div class="field">
+      <label>유형</label>
+      <div class="badge-select" id="f-type"></div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>시작일</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="field">
+        <label>종료일 (선택)</label>
+        <input type="date" id="f-enddate">
+      </div>
+    </div>
+    <div class="field">
+      <label>담당자</label>
+      <div class="manager-select-row">
+        <select id="f-manager"></select>
+        <button type="button" id="f-manager-delete" title="선택된 담당자를 목록에서 삭제">🗑</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>확정여부</label>
+      <div class="badge-select" id="f-confirmed"></div>
+    </div>
+    <div class="field">
+      <label>진척도</label>
+      <div class="badge-select" id="f-progress"></div>
+    </div>
+    <div class="field">
+      <label>비고</label>
+      <textarea id="f-memo" placeholder="메모"></textarea>
+    </div>
+    <div class="field">
+      <label>견적서 파일</label>
+      <div class="file-list" id="f-files"></div>
+      <label class="upload-btn" id="upload-dropzone">📎 파일 추가 또는 여기로 끌어다 놓기
+        <input type="file" id="f-upload" multiple hidden>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="delete-btn" style="display:none">삭제</button>
+      <div class="right">
+        <button class="btn" id="cancel-btn">취소</button>
+        <button class="btn primary" id="save-btn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 백엔드: Google Apps Script Web App (구글 시트가 DB) — PC 전원과 무관하게 항상 켜져 있다.
+  var API_URL = "https://script.google.com/macros/s/AKfycbwFcQ7PkSQh5Vil6zEvtOtrBBJg5HS-DGJEBZkw9ya24Hy9fbyNsTfdMRzPr_K6Yfln/exec";
+
+  // "?view=1" 쿼리로 들어오면 읽기 전용 모드: 등록/수정/삭제/파일업로드/담당자 관리 UI를 다 숨긴다.
+  // (주의: UI만 숨기는 방식이라 브라우저 개발자도구로 API를 직접 호출하면 우회는 가능하다 -
+  // 별도 로그인 없이 "링크를 아는 사람"까지만 신뢰하는 이 앱의 기존 방식과 같은 수준의 보호다.
+  // Apps Script Web App 자체가 "링크를 아는 사람 누구나 GET/POST 가능"이기 때문.)
+  var READ_ONLY = new URLSearchParams(location.search).has("view");
+
+  var TYPE_OPTIONS = ["행사", "설치", "현장실측"];
+  var CONFIRMED_OPTIONS = ["확정", "협의중", "미확정"];
+  var PROGRESS_OPTIONS = ["기획", "운영", "완료"];
+  var MANAGER_COLORS = [
+    "#3b82f6", "#f97316", "#8b5cf6", "#16a34a", "#ca8a04",
+    "#dc2626", "#ec4899", "#14b8a6", "#6366f1", "#78716c",
+  ];
+
+  var events = [];
+  var managers = [];
+  var current = new Date();
+  var editingId = null;
+  var pendingFiles = [];
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+  function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function sameDay(a, b) { return ymd(a) === ymd(b); }
+
+  // ---- Apps Script 호출 헬퍼 ----
+  // POST는 Content-Type을 일부러 지정하지 않는다(기본값 text/plain) -
+  // JSON으로 지정하면 브라우저가 CORS preflight(OPTIONS)를 보내는데 Apps Script는 이를 처리하지 못해 요청이 막힌다.
+  async function apiGet() {
+    var res = await fetch(API_URL);
+    return res.json();
+  }
+  async function apiPost(payload) {
+    var res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+    return res.json();
+  }
+
+  async function fetchAll() {
+    var data = await apiGet();
+    events = data.events || [];
+    managers = data.managers || [];
+  }
+
+  async function loadEvents() {
+    await fetchAll();
+    renderCalendar();
+  }
+
+  function activeTypes() {
+    return Array.prototype.slice.call(document.querySelectorAll(".type-filter:checked")).map(function (c) { return c.value; });
+  }
+  var CONFIRMED_ICON = { "확정": "✅", "협의중": "🕗", "미확정": "❗" };
+
+  function eventsForDay(dateStr) {
+    var types = activeTypes();
+    return events.filter(function (e) {
+      if (types.indexOf(e.type) === -1) return false;
+      var start = e.date, end = e.endDate || e.date;
+      return start && dateStr >= start && dateStr <= end;
+    });
+  }
+
+  // ---- 담당자 목록: 캘린더 칩 + 일정등록 모달 드롭다운에서만 쓰인다(사이드바에는 없음) ----
+  async function loadManagers() {
+    await fetchAll();
+  }
+
+  var ADD_NEW_MANAGER = "__add_new__";
+
+  async function addManager(name) {
+    var color = MANAGER_COLORS[managers.length % MANAGER_COLORS.length];
+    var res = await apiPost({ action: "create_manager", manager: { name: name, color: color } });
+    if (res.error) {
+      alert("추가하지 못했습니다: " + res.error);
+      return null;
+    }
+    await loadManagers();
+    return name;
+  }
+
+  function refreshManagerSelect(selectedValue) {
+    var sel = document.getElementById("f-manager");
+    var names = managers.map(function (m) { return m.name; });
+    if (selectedValue && names.indexOf(selectedValue) === -1) names.push(selectedValue);
+    sel.innerHTML = '<option value="">(선택 안함)</option>' +
+      names.map(function (n) { return '<option value="' + n + '">' + n + '</option>'; }).join("") +
+      '<option value="' + ADD_NEW_MANAGER + '">+ 새 담당자 추가...</option>';
+    sel.value = selectedValue || "";
+  }
+
+  document.getElementById("f-manager").addEventListener("change", async function (ev) {
+    if (ev.target.value !== ADD_NEW_MANAGER) return;
+    var name = prompt("새 담당자 이름을 입력하세요");
+    name = (name || "").trim();
+    var prevValue = "";
+    if (!name) { refreshManagerSelect(prevValue); return; }
+    var added = await addManager(name);
+    refreshManagerSelect(added || prevValue);
+  });
+
+  document.getElementById("f-manager-delete").addEventListener("click", async function () {
+    var sel = document.getElementById("f-manager");
+    var name = sel.value;
+    if (!name || name === ADD_NEW_MANAGER) {
+      alert("삭제할 담당자를 먼저 드롭다운에서 선택하세요.");
+      return;
+    }
+    var m = managers.find(function (x) { return x.name === name; });
+    if (!m) {
+      alert("이 이름은 담당자 관리 목록에 없어서(자유 입력된 값) 여기서 삭제할 수 없습니다.");
+      return;
+    }
+    if (!confirm(name + " 님을 담당자 목록에서 삭제할까요? (이미 등록된 일정의 담당자 값은 그대로 남습니다)")) return;
+    await apiPost({ action: "delete_manager", id: m.id });
+    await loadManagers();
+    refreshManagerSelect("");
+  });
+
+  var viewMode = "month"; // "month" | "week"
+
+  function buildDayCell(d, isOtherMonth) {
+    var today = new Date();
+    var cell = document.createElement("div");
+    cell.className = "day-cell" + (isOtherMonth ? " other-month" : "") + (sameDay(d, today) ? " today" : "");
+
+    var num = document.createElement("div");
+    num.className = "day-num" + (d.getDay() === 0 ? " sun" : "") + (sameDay(d, today) ? " today-num" : "");
+    num.textContent = d.getDate();
+    cell.appendChild(num);
+
+    let dayStr = ymd(d);
+    var dayEvents = eventsForDay(dayStr);
+    var maxShown = viewMode === "week" ? 10 : 3;
+    var shown = dayEvents.slice(0, maxShown);
+    shown.forEach(function (ev) {
+      var chip = document.createElement("div");
+      chip.className = "chip type-" + ev.type;
+      chip.textContent = (CONFIRMED_ICON[ev.confirmed] || "") + " " + (ev.title || "(제목 없음)") + (ev.manager ? " · " + ev.manager : "");
+      chip.addEventListener("click", function (domEv) { domEv.stopPropagation(); openModal(ev); });
+      cell.appendChild(chip);
+    });
+    if (dayEvents.length > shown.length) {
+      var more = document.createElement("div");
+      more.className = "more-link";
+      more.textContent = "+" + (dayEvents.length - shown.length) + "개 더보기";
+      more.addEventListener("click", function (domEv) {
+        domEv.stopPropagation();
+        alert(dayEvents.map(function(e){return e.title;}).join("\n"));
+      });
+      cell.appendChild(more);
+    }
+
+    // 구글 캘린더처럼 빈 칸을 클릭하면 그 날짜가 채워진 채로 등록 모달이 뜬다.
+    cell.addEventListener("click", function () { openModal(null, dayStr); });
+    return cell;
+  }
+
+  function weekStart(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
+  }
+
+  function renderMonthGrid() {
+    var year = current.getFullYear(), month = current.getMonth();
+    var firstDay = new Date(year, month, 1);
+    var gridStart = new Date(year, month, 1 - firstDay.getDay());
+    var grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    grid.classList.remove("week-mode");
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+      grid.appendChild(buildDayCell(d, d.getMonth() !== month));
+    }
+  }
+
+  function renderWeekGrid() {
+    var start = weekStart(current);
+    var grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    grid.classList.add("week-mode");
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      grid.appendChild(buildDayCell(d, false));
+    }
+  }
+
+  function renderTableView() {
+    var year = current.getFullYear(), month = current.getMonth();
+    var monthPrefix = year + "-" + pad(month + 1);
+    var types = activeTypes();
+    var monthEvents = events
+      .filter(function (e) { return (e.date || "").indexOf(monthPrefix) === 0 && types.indexOf(e.type) !== -1; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+
+    var body = document.getElementById("table-body");
+    body.innerHTML = "";
+    document.getElementById("table-empty").classList.toggle("hidden", monthEvents.length > 0);
+
+    monthEvents.forEach(function (e) {
+      var tr = document.createElement("tr");
+      var filesHtml = (e.files && e.files.length)
+        ? e.files.map(function (f) { return '<a class="table-file-link" target="_blank" href="' + f.url + '">📄 ' + f.name + '</a>'; }).join("")
+        : '<span class="table-no-file">-</span>';
+      tr.innerHTML =
+        "<td>" + e.date + (e.endDate && e.endDate !== e.date ? " ~ " + e.endDate : "") + "</td>" +
+        "<td>" + (e.title || "(제목 없음)") + "</td>" +
+        '<td><span class="table-type-badge type-' + e.type + '">' + e.type + "</span></td>" +
+        "<td>" + (e.manager || "-") + "</td>" +
+        '<td><span class="table-confirmed-badge confirmed-' + e.confirmed + '">' + e.confirmed + "</span></td>" +
+        '<td><span class="table-progress-badge progress-' + e.progress + '">' + e.progress + "</span></td>" +
+        '<td class="memo-cell">' + (e.memo || "") + "</td>" +
+        "<td>" + filesHtml + "</td>";
+      tr.addEventListener("click", function (domEv) {
+        if (domEv.target.closest(".table-file-link")) return; // 파일 링크 클릭은 다운로드만, 모달은 안 뜸
+        openModal(e);
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  function renderCalendar() {
+    var isTable = viewMode === "table";
+    document.getElementById("weekdays-header").classList.toggle("hidden", isTable);
+    document.getElementById("grid").classList.toggle("hidden", isTable);
+    document.getElementById("table-view").classList.toggle("hidden", !isTable);
+
+    if (viewMode === "week") {
+      var start = weekStart(current);
+      var end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+      var label = start.getMonth() === end.getMonth()
+        ? (start.getFullYear() + "년 " + (start.getMonth() + 1) + "월 " + start.getDate() + "일~" + end.getDate() + "일")
+        : ((start.getMonth() + 1) + "." + start.getDate() + " ~ " + (end.getMonth() + 1) + "." + end.getDate());
+      document.getElementById("month-label").textContent = label;
+      renderWeekGrid();
+    } else {
+      document.getElementById("month-label").textContent = current.getFullYear() + "년 " + (current.getMonth() + 1) + "월";
+      if (isTable) renderTableView();
+      else renderMonthGrid();
+    }
+    renderDashboard();
+  }
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    document.getElementById("view-month-btn").classList.toggle("active", mode === "month");
+    document.getElementById("view-week-btn").classList.toggle("active", mode === "week");
+    document.getElementById("view-table-btn").classList.toggle("active", mode === "table");
+    renderCalendar();
+  }
+  document.getElementById("view-month-btn").addEventListener("click", function () { setViewMode("month"); });
+  document.getElementById("view-week-btn").addEventListener("click", function () { setViewMode("week"); });
+  document.getElementById("view-table-btn").addEventListener("click", function () { setViewMode("table"); });
+
+  // ---- 월별 현황 대시보드: ◀▶로 과거·미래 달을 넘기며 행사명별 확정여부 확인 ----
+  var dashCursor = null; // null이면 메인 캘린더(current)와 같은 달을 따라감
+
+  function dashMonth() { return dashCursor || current; }
+
+  function renderDashboard() {
+    var dm = dashMonth();
+    var year = dm.getFullYear(), month = dm.getMonth();
+    var monthPrefix = year + "-" + pad(month + 1);
+    var monthEvents = events
+      .filter(function (e) { return (e.date || "").indexOf(monthPrefix) === 0; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+
+    document.getElementById("dash-month-label").textContent = year + "년 " + (month + 1) + "월 현황";
+
+    var total = monthEvents.length;
+
+    document.getElementById("dash-total").textContent = "전체 " + total + "건";
+
+    var box = document.getElementById("dash-event-list");
+    box.innerHTML = "";
+    if (!total) {
+      var empty = document.createElement("div");
+      empty.className = "dash-empty";
+      empty.textContent = "이 달에는 등록된 일정이 없습니다.";
+      box.appendChild(empty);
+    }
+
+    ["확정", "협의중", "미확정"].forEach(function (status) {
+      var group = monthEvents.filter(function (e) { return e.confirmed === status; });
+      if (!group.length) return;
+      var groupBox = document.createElement("div");
+      groupBox.className = "dash-status-group st-" + status;
+      groupBox.innerHTML = '<div class="status-header">' + (CONFIRMED_ICON[status] || "") + " " + status + " (" + group.length + "건)</div>";
+      group.forEach(function (e) {
+        var item = document.createElement("div");
+        item.className = "dash-event-item";
+        item.textContent = e.date + " · " + (e.title || "(제목 없음)");
+        item.addEventListener("click", function () { openModal(e); });
+        groupBox.appendChild(item);
+      });
+      box.appendChild(groupBox);
+    });
+
+    // ---- 이 달 견적서 모아보기 ----
+    var allFiles = [];
+    monthEvents.forEach(function (e) {
+      (e.files || []).forEach(function (f) {
+        allFiles.push({ eventTitle: e.title || "(제목 없음)", eventDate: e.date, name: f.name, url: f.url, uploadedAt: f.uploadedAt });
+      });
+    });
+    allFiles.sort(function (a, b) { return (a.uploadedAt || 0) - (b.uploadedAt || 0); });
+
+    document.getElementById("dash-files-header").textContent = "📎 이 달 견적서 (" + allFiles.length + "건)";
+    var filesBox = document.getElementById("dash-files-list");
+    filesBox.innerHTML = "";
+    if (!allFiles.length) {
+      var fEmpty = document.createElement("div");
+      fEmpty.className = "dash-empty";
+      fEmpty.textContent = "업로드된 견적서 없음";
+      filesBox.appendChild(fEmpty);
+    } else {
+      allFiles.forEach(function (f) {
+        var a = document.createElement("a");
+        a.className = "dash-file-item";
+        a.href = f.url;
+        a.target = "_blank";
+        a.innerHTML = '<span class="df-name">📄 ' + f.name + '</span>' +
+                       '<span class="df-meta">' + f.eventDate + " · " + f.eventTitle + '</span>';
+        filesBox.appendChild(a);
+      });
+    }
+  }
+
+  document.getElementById("dash-prev").addEventListener("click", function () {
+    var dm = dashMonth();
+    dashCursor = new Date(dm.getFullYear(), dm.getMonth() - 1, 1);
+    renderDashboard();
+  });
+  document.getElementById("dash-next").addEventListener("click", function () {
+    var dm = dashMonth();
+    dashCursor = new Date(dm.getFullYear(), dm.getMonth() + 1, 1);
+    renderDashboard();
+  });
+
+  // 체크박스는 화면에서 안 보이게 숨기고, 대신 라벨 자체의 흐림 정도로 켜짐/꺼짐을 표시한다.
+  function syncFilterItemVisual(cb) {
+    var item = cb.closest(".filter-item");
+    if (item) item.classList.toggle("off", !cb.checked);
+  }
+  document.querySelectorAll(".type-filter").forEach(function (el) {
+    syncFilterItemVisual(el);
+    el.addEventListener("change", function () { syncFilterItemVisual(el); renderCalendar(); });
+  });
+
+  document.getElementById("prev-btn").addEventListener("click", function () {
+    current = viewMode === "week"
+      ? new Date(current.getFullYear(), current.getMonth(), current.getDate() - 7)
+      : new Date(current.getFullYear(), current.getMonth() - 1, 1);
+    renderCalendar();
+  });
+  document.getElementById("next-btn").addEventListener("click", function () {
+    current = viewMode === "week"
+      ? new Date(current.getFullYear(), current.getMonth(), current.getDate() + 7)
+      : new Date(current.getFullYear(), current.getMonth() + 1, 1);
+    renderCalendar();
+  });
+  document.getElementById("today-btn").addEventListener("click", function () {
+    current = new Date();
+    dashCursor = null; // 사이드바 "월별 현황"에서 다른 달로 넘겨놨어도 오늘 기준으로 같이 복귀
+    closeModal(); // 등록/수정 창이 열려 있었어도 오늘 화면으로 바로 돌아간다.
+    renderCalendar();
+  });
+
+  // ---- 배지 선택형 필드 렌더 ----
+  function renderBadgeGroup(containerId, options, prefix, selected, onSelect) {
+    var box = document.getElementById(containerId);
+    box.innerHTML = "";
+    options.forEach(function (opt) {
+      var b = document.createElement("div");
+      b.className = "badge-option " + (opt === selected ? "selected " + prefix + "-" + opt : "");
+      b.textContent = opt;
+      b.dataset.value = opt;
+      b.addEventListener("click", function () {
+        onSelect(opt);
+      });
+      box.appendChild(b);
+    });
+  }
+
+  var formState = { type: "행사", confirmed: "미확정", progress: "기획" };
+
+  function refreshBadges() {
+    renderBadgeGroup("f-type", TYPE_OPTIONS, "type", formState.type, function (v) { formState.type = v; refreshBadges(); });
+    renderBadgeGroup("f-confirmed", CONFIRMED_OPTIONS, "confirmed", formState.confirmed, function (v) { formState.confirmed = v; refreshBadges(); });
+    renderBadgeGroup("f-progress", PROGRESS_OPTIONS, "progress", formState.progress, function (v) { formState.progress = v; refreshBadges(); });
+  }
+
+  function renderFileList(files) {
+    var box = document.getElementById("f-files");
+    box.innerHTML = "";
+    (files || []).forEach(function (f) {
+      var row = document.createElement("div");
+      row.className = "file-item";
+      var a = document.createElement("a");
+      a.href = f.url; a.target = "_blank"; a.textContent = "📄 " + f.name;
+      row.appendChild(a);
+      box.appendChild(row);
+    });
+    if (!files || !files.length) {
+      var empty = document.createElement("div");
+      empty.style.cssText = "font-size:12px;color:var(--sub);";
+      empty.textContent = "첨부된 견적서 없음";
+      box.appendChild(empty);
+    }
+  }
+
+  function openModal(ev, defaultDate) {
+    if (READ_ONLY && !ev) return; // 읽기 전용 모드에서는 새 일정 등록을 열 수 없다.
+    editingId = ev ? ev.id : null;
+    pendingFiles = [];
+    document.getElementById("modal-title").textContent = READ_ONLY ? "일정 보기" : (ev ? "일정 수정" : "일정 등록");
+    document.getElementById("f-id").value = ev ? ev.id : "";
+    document.getElementById("f-title").value = ev ? ev.title : "";
+    document.getElementById("f-date").value = ev ? ev.date : (defaultDate || ymd(current));
+    document.getElementById("f-enddate").value = ev ? (ev.endDate || "") : "";
+    refreshManagerSelect(ev ? ev.manager : "");
+    document.getElementById("f-memo").value = ev ? ev.memo : "";
+    formState.type = ev ? ev.type : "행사";
+    formState.confirmed = ev ? ev.confirmed : "미확정";
+    formState.progress = ev ? ev.progress : "기획";
+    refreshBadges();
+    renderFileList(ev ? ev.files : []);
+    document.getElementById("delete-btn").style.display = (ev && !READ_ONLY) ? "inline-block" : "none";
+
+    if (READ_ONLY) {
+      ["f-title", "f-date", "f-enddate", "f-manager", "f-memo"].forEach(function (id) {
+        document.getElementById(id).disabled = true;
+      });
+      document.querySelectorAll("#f-type .badge-option, #f-confirmed .badge-option, #f-progress .badge-option")
+        .forEach(function (b) { b.style.pointerEvents = "none"; });
+      document.getElementById("f-manager-delete").style.display = "none";
+      document.querySelector(".upload-btn").style.display = "none";
+      document.getElementById("save-btn").style.display = "none";
+    }
+
+    document.getElementById("overlay").classList.remove("hidden");
+  }
+
+  function closeModal() {
+    document.getElementById("overlay").classList.add("hidden");
+    editingId = null;
+  }
+
+  document.getElementById("add-btn").addEventListener("click", function () { openModal(null); });
+  document.getElementById("cancel-btn").addEventListener("click", closeModal);
+  document.getElementById("overlay").addEventListener("click", function (ev) {
+    if (ev.target.id === "overlay") closeModal();
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape" && !document.getElementById("overlay").classList.contains("hidden")) {
+      closeModal();
+    }
+  });
+
+  document.getElementById("save-btn").addEventListener("click", async function () {
+    var payload = {
+      title: document.getElementById("f-title").value.trim(),
+      type: formState.type,
+      date: document.getElementById("f-date").value,
+      endDate: document.getElementById("f-enddate").value,
+      manager: document.getElementById("f-manager").value.trim(),
+      confirmed: formState.confirmed,
+      progress: formState.progress,
+      memo: document.getElementById("f-memo").value.trim(),
+    };
+    if (!payload.title || !payload.date) {
+      alert("행사/현장명과 시작일은 필수입니다.");
+      return;
+    }
+    var savedId = editingId;
+    if (editingId) {
+      payload.id = editingId;
+      await apiPost({ action: "update_event", event: payload });
+    } else {
+      var created = await apiPost({ action: "create_event", event: payload });
+      savedId = created.id;
+    }
+    if (pendingFiles.length) {
+      for (var i = 0; i < pendingFiles.length; i++) {
+        await uploadFile(savedId, pendingFiles[i]);
+      }
+      pendingFiles = [];
+    }
+    closeModal();
+    loadEvents();
+  });
+
+  document.getElementById("delete-btn").addEventListener("click", async function () {
+    if (!editingId) return;
+    if (!confirm("이 일정을 삭제할까요? 첨부된 견적서도 함께 삭제됩니다.")) return;
+    await apiPost({ action: "delete_event", id: editingId });
+    closeModal();
+    loadEvents();
+  });
+
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result.split(",")[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function uploadFile(eventId, file) {
+    var base64Data = await fileToBase64(file);
+    await apiPost({
+      action: "upload_file",
+      eventId: eventId,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      base64Data: base64Data,
+    });
+  }
+
+  async function handleFilesSelected(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length || READ_ONLY) return;
+    if (editingId) {
+      for (var i = 0; i < files.length; i++) {
+        await uploadFile(editingId, files[i]);
+      }
+      await fetchAll();
+      var updated = events.find(function (e) { return e.id === editingId; });
+      renderFileList(updated ? updated.files : []);
+    } else {
+      pendingFiles = pendingFiles.concat(files);
+      renderFileList(pendingFiles.map(function (f) { return { name: f.name, url: "#" }; }));
+    }
+  }
+
+  document.getElementById("f-upload").addEventListener("change", function (ev) {
+    handleFilesSelected(ev.target.files);
+    ev.target.value = "";
+  });
+
+  // ---- 견적서 드래그앤드롭 업로드 ----
+  var dropzone = document.getElementById("upload-dropzone");
+  ["dragenter", "dragover"].forEach(function (evName) {
+    dropzone.addEventListener(evName, function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      dropzone.classList.add("dragover");
+    });
+  });
+  ["dragleave", "dragend"].forEach(function (evName) {
+    dropzone.addEventListener(evName, function (ev) {
+      ev.preventDefault();
+      dropzone.classList.remove("dragover");
+    });
+  });
+  dropzone.addEventListener("drop", function (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    dropzone.classList.remove("dragover");
+    if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length) {
+      handleFilesSelected(ev.dataTransfer.files);
+    }
+  });
+
+  (async function init() {
+    if (READ_ONLY) {
+      document.getElementById("add-btn").style.display = "none";
+      var banner = document.createElement("div");
+      banner.style.cssText = "background:#fef9c3;color:#854d0e;font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:8px;margin-bottom:4px;text-align:center;";
+      banner.textContent = "👀 읽기 전용 보기 (수정·등록 불가)";
+      document.getElementById("sidebar").insertBefore(banner, document.getElementById("sidebar").firstChild);
+    }
+    refreshBadges();
+    await fetchAll();
+    renderCalendar();
+  })();
+</script>
+</body>
+</html>
